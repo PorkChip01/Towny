@@ -37,15 +37,7 @@ public class HealthRegenTimerTask extends TownyTimerTask {
 			
 			// Is wilderness
 			if (TownyAPI.getInstance().isWilderness(player.getLocation()))
-				continue;
-			
-			TownBlock townBlock = TownyAPI.getInstance().getTownBlock(player.getLocation());
-			Resident resident = TownyUniverse.getInstance().getResident(player.getUniqueId());
-
-			if (resident != null 
-				&& resident.hasTown() 
-				&& CombatUtil.isAlly(townBlock.getTownOrNull(), TownyAPI.getInstance().getResidentTownOrNull(resident))
-				&& !townBlock.getType().equals(TownBlockType.ARENA)) // only regen if not in an arena
+	
 				incHealth(player);
 		}
 	}
