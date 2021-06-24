@@ -34,19 +34,12 @@ public class HealthRegenTimerTask extends TownyTimerTask {
 		for (Player player : server.getOnlinePlayers()) {
 			if (player.getHealth() <= 0)
 				continue;
-			
-			// Is wilderness
-			if (TownyAPI.getInstance().isWilderness(player.getLocation()))
 	
 				incHealth(player);
 		}
 	}
 
 	public void incHealth(Player player) {
-
-		// Keep saturation above zero while in town.
-		if (player.getSaturation() == 0)			
-			player.setSaturation(1F);
 		
 		// Heal while in town.
 		double currentHP = player.getHealth();
