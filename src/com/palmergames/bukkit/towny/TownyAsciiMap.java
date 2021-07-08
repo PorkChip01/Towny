@@ -1,7 +1,13 @@
 package com.palmergames.bukkit.towny;
 
 import com.palmergames.bukkit.towny.object.Translation;
+import com.palmergames.bukkit.towny.object.WorldCoord;
+import com.palmergames.bukkit.towny.object.map.TownyMapData;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import net.kyori.adventure.text.Component;
@@ -10,6 +16,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 
+import com.palmergames.bukkit.towny.event.asciimap.WildernessMapEvent;
 import com.palmergames.bukkit.towny.exceptions.TownyException;
 import com.palmergames.bukkit.towny.object.Coord;
 import com.palmergames.bukkit.towny.object.Nation;
@@ -26,6 +33,7 @@ public class TownyAsciiMap {
 
 	public static final int lineWidth = 27;
 	public static final int halfLineWidth = lineWidth / 2;
+	private static final int townBlockSize = TownySettings.getTownBlockSize();
 	public static final String[] help = {
 			"  " + Colors.Gray + "-" + Colors.LightGray + " = " + Translation.of("towny_map_unclaimed"),
 			"  " + Colors.White + "+" + Colors.LightGray + " = " + Translation.of("towny_map_claimed"),
@@ -34,6 +42,7 @@ public class TownyAsciiMap {
 			"  " + Colors.Yellow + "+" + Colors.LightGray + " = " + Translation.of("towny_map_yourplot"),
 			"  " + Colors.Green + "+" + Colors.LightGray + " = " + Translation.of("towny_map_ally"),
 			"  " + Colors.Red + "+" + Colors.LightGray + " = " + Translation.of("towny_map_enemy")};
+	private static Map<WorldCoord, TownyMapData> wildernessMapDataMap = new ConcurrentHashMap<WorldCoord, TownyMapData>();
 
 	public static String[] generateCompass(Player player) {
 
@@ -139,13 +148,43 @@ public class TownyAsciiMap {
 
 					townyMap[y][x] = townyMap[y][x].hoverEvent(HoverEvent.showText(hoverComponent)).clickEvent(ClickEvent.runCommand("/towny:plot perm " + tby + " " + tbx));
 				} catch (TownyException e) {
+					// Unregistered town block (Wilderness)
+
 					if (x == halfLineHeight && y == halfLineWidth)
 						townyMap[y][x] = townyMap[y][x].color(NamedTextColor.GOLD);
 					else
 						townyMap[y][x] = townyMap[y][x].color(NamedTextColor.DARK_GRAY);
 
-					// Unregistered town block
-					townyMap[y][x] = townyMap[y][x].content("-").clickEvent(ClickEvent.runCommand("/towny:townyworld")).hoverEvent(HoverEvent.showText(Component.text(world.getUnclaimedZoneName()).color(NamedTextColor.DARK_RED).append(Component.text(" (" + tby + ", " + tbx + ")").color(NamedTextColor.WHITE))));
+					WorldCoord wc = WorldCoord.parseWorldCoord(world.getName(), tby * townBlockSize , tbx* townBlockSize);
+					String symbol;
+					TextComponent hoverText;
+					String clickCommand;
+					// Cached TownyMapData is present and not old.
+					if (wildernessMapDataMap.containsKey(wc) && !wildernessMapDataMap.get(wc).isOld()) {
+						TownyMapData mapData = wildernessMapDataMap.get(wc);
+						symbol = mapData.getSymbol();
+						hoverText = mapData.getHoverText();
+						clickCommand = mapData.getClickCommand();
+					// Cached TownyMapData is either not present or was considered old.
+					} else {
+						if (wildernessMapDataMap.containsKey(wc))
+							wildernessMapDataMap.remove(wc);
+						WildernessMapEvent wildMapEvent = new WildernessMapEvent(wc);
+						Bukkit.getPluginManager().callEvent(wildMapEvent);
+						symbol = wildMapEvent.getMapSymbol();
+						hoverText = wildMapEvent.getHoverText();
+						clickCommand = wildMapEvent.getClickCommand();
+						wildernessMapDataMap.put(wc, new TownyMapData(wc, symbol, hoverText, clickCommand));
+						
+						Bukkit.getScheduler().runTaskLater(Towny.getPlugin(), ()-> {
+							if (wildernessMapDataMap.containsKey(wc) && wildernessMapDataMap.get(wc).isOld())
+								wildernessMapDataMap.remove(wc);
+						}, 20 * 35);
+					}
+
+					townyMap[y][x] = townyMap[y][x].content(symbol)
+							.clickEvent(ClickEvent.runCommand(clickCommand))
+							.hoverEvent(HoverEvent.showText(hoverText));
 				}
 				x++;
 			}
@@ -178,5 +217,9 @@ public class TownyAsciiMap {
 
 		TownBlock townblock = TownyAPI.getInstance().getTownBlock(plugin.getCache(player).getLastLocation());
 		TownyMessaging.sendMsg(player, (Translation.of("town_sing") + ": " + (townblock != null && townblock.hasTown() ? townblock.getTownOrNull().getName() : Translation.of("status_no_town")) + " : " + Translation.of("owner_status") + ": " + (townblock != null && townblock.hasResident() ? townblock.getResidentOrNull().getName() : Translation.of("status_no_town"))));
+	}
+	
+	public static void clearWildernessMapData() {
+		wildernessMapDataMap.clear();
 	}
 }
