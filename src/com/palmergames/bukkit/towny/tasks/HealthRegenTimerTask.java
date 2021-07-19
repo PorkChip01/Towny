@@ -34,7 +34,11 @@ public class HealthRegenTimerTask extends TownyTimerTask {
 		for (Player player : server.getOnlinePlayers()) {
 			if (player.getHealth() <= 0)
 				continue;
-	
+			
+			// Is wilderness
+			if (TownyAPI.getInstance().isWilderness(player.getLocation()))
+				continue;
+			
 				incHealth(player);
 		}
 	}
