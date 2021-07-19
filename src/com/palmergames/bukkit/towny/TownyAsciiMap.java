@@ -5,8 +5,6 @@ import com.palmergames.bukkit.towny.object.WorldCoord;
 import com.palmergames.bukkit.towny.object.map.TownyMapData;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -42,7 +40,6 @@ public class TownyAsciiMap {
 			"  " + Colors.Yellow + "+" + Colors.LightGray + " = " + Translation.of("towny_map_yourplot"),
 			"  " + Colors.Green + "+" + Colors.LightGray + " = " + Translation.of("towny_map_ally"),
 			"  " + Colors.Red + "+" + Colors.LightGray + " = " + Translation.of("towny_map_enemy")};
-	private static Map<WorldCoord, TownyMapData> wildernessMapDataMap = new ConcurrentHashMap<WorldCoord, TownyMapData>();
 
 	public static String[] generateCompass(Player player) {
 
@@ -122,7 +119,7 @@ public class TownyAsciiMap {
 					}
 
 					// Registered town block
-					if (townblock.getPlotPrice() != -1) {
+					if (townblock.getPlotPrice() != -1 || townblock.hasPlotObjectGroup() && townblock.getPlotObjectGroup().getPrice() != -1) {
 						// override the colour if it's a shop plot for sale
 						if (townblock.getType().equals(TownBlockType.COMMERCIAL))
 							townyMap[y][x] = townyMap[y][x].color(NamedTextColor.BLUE);
@@ -134,19 +131,43 @@ public class TownyAsciiMap {
 					
 					TextComponent forSaleComponent = Component.empty();
 					TextComponent claimedAtComponent = Component.empty();
-					if (townblock.getPlotPrice() != -1 && TownyEconomyHandler.isActive())
-						forSaleComponent = Component.text(String.format(ChunkNotification.forSaleNotificationFormat, TownyEconomyHandler.getFormattedBalance(townblock.getPlotPrice())).replaceAll("[\\[\\]]", "")).color(NamedTextColor.YELLOW).append(Component.newline());
+					TextComponent groupComponent = Component.empty();
+					
+					if (TownyEconomyHandler.isActive()) {
+						double cost;
+						if (townblock.hasPlotObjectGroup())
+							cost = townblock.getPlotObjectGroup().getPrice();
+						else 
+							cost = townblock.getPlotPrice();
+						
+						if (cost > -1)
+							forSaleComponent = Component.text(String.format(ChunkNotification.forSaleNotificationFormat, TownyEconomyHandler.getFormattedBalance(cost)).replaceAll("[\\[\\]]", "") + " " + Translation.of("msg_click_purchase")).color(NamedTextColor.YELLOW).append(Component.newline());
+					}
 					
 					if (townblock.getClaimedAt() > 0)
 						claimedAtComponent = Component.text(Translation.of("msg_plot_perm_claimed_at", TownyFormatter.registeredFormat.format(townblock.getClaimedAt()))).append(Component.newline());
 
+					if (townblock.hasPlotObjectGroup()) {
+						groupComponent = Component.text(Translation.of("map_hover_plot_group")).color(NamedTextColor.DARK_GREEN)
+							.append(Component.text(townblock.getPlotObjectGroup().getFormattedName()).color(NamedTextColor.GREEN)
+							.append(Component.text(Translation.of("map_hover_plot_group_size")).color(NamedTextColor.DARK_GREEN)
+							.append(Component.text(Translation.of("map_hover_plots", townblock.getPlotObjectGroup().getTownBlocks().size())).color(NamedTextColor.GREEN)
+							.append(Component.newline()))));
+					}
+
+					
 					TextComponent hoverComponent = Component.text(Translation.of("status_town") + town.getName() + (townblock.hasResident() ? " (" + townblock.getResidentOrNull().getName() + ")" : "")).color(NamedTextColor.GREEN).append(Component.text(" (" + tby + ", " + tbx + ")").color(NamedTextColor.WHITE)).append(Component.newline())
-						.append(Component.text(Translation.of("status_plot_type")).color(NamedTextColor.GREEN)).append(Component.text(townblock.getType().getName()).color(NamedTextColor.GREEN)).append(Component.newline())
+						.append(Component.text(Translation.of("status_plot_type")).color(NamedTextColor.DARK_GREEN).append(Component.text(townblock.getType().getName()).color(NamedTextColor.GREEN).append(Component.newline())
+						.append(groupComponent)
 						.append(forSaleComponent)
 						.append(claimedAtComponent)
-						.append(Component.text(Translation.of("towny_map_detailed_information")).color(NamedTextColor.DARK_GREEN));
+						.append(Component.text(Translation.of("towny_map_detailed_information")).color(NamedTextColor.DARK_GREEN))));
+					
+					ClickEvent clickEvent = ClickEvent.runCommand("/towny:plot info " + tby + " " + tbx);
+					if (!forSaleComponent.equals(Component.empty()))
+						clickEvent = ClickEvent.runCommand("/towny:plot claim " + world.getName() + " x" + tby + " z" + tbx);
 
-					townyMap[y][x] = townyMap[y][x].hoverEvent(HoverEvent.showText(hoverComponent)).clickEvent(ClickEvent.runCommand("/towny:plot perm " + tby + " " + tbx));
+					townyMap[y][x] = townyMap[y][x].hoverEvent(HoverEvent.showText(hoverComponent)).clickEvent(clickEvent);
 				} catch (TownyException e) {
 					// Unregistered town block (Wilderness)
 
@@ -160,25 +181,25 @@ public class TownyAsciiMap {
 					TextComponent hoverText;
 					String clickCommand;
 					// Cached TownyMapData is present and not old.
-					if (wildernessMapDataMap.containsKey(wc) && !wildernessMapDataMap.get(wc).isOld()) {
-						TownyMapData mapData = wildernessMapDataMap.get(wc);
+					if (getWildernessMapDataMap().containsKey(wc) && !getWildernessMapDataMap().get(wc).isOld()) {
+						TownyMapData mapData = getWildernessMapDataMap().get(wc);
 						symbol = mapData.getSymbol();
 						hoverText = mapData.getHoverText();
 						clickCommand = mapData.getClickCommand();
 					// Cached TownyMapData is either not present or was considered old.
 					} else {
-						if (wildernessMapDataMap.containsKey(wc))
-							wildernessMapDataMap.remove(wc);
+						if (getWildernessMapDataMap().containsKey(wc))
+							getWildernessMapDataMap().remove(wc);
 						WildernessMapEvent wildMapEvent = new WildernessMapEvent(wc);
 						Bukkit.getPluginManager().callEvent(wildMapEvent);
 						symbol = wildMapEvent.getMapSymbol();
 						hoverText = wildMapEvent.getHoverText();
 						clickCommand = wildMapEvent.getClickCommand();
-						wildernessMapDataMap.put(wc, new TownyMapData(wc, symbol, hoverText, clickCommand));
+						getWildernessMapDataMap().put(wc, new TownyMapData(wc, symbol, hoverText, clickCommand));
 						
 						Bukkit.getScheduler().runTaskLater(Towny.getPlugin(), ()-> {
-							if (wildernessMapDataMap.containsKey(wc) && wildernessMapDataMap.get(wc).isOld())
-								wildernessMapDataMap.remove(wc);
+							if (getWildernessMapDataMap().containsKey(wc) && getWildernessMapDataMap().get(wc).isOld())
+								getWildernessMapDataMap().remove(wc);
 						}, 20 * 35);
 					}
 
@@ -219,7 +240,7 @@ public class TownyAsciiMap {
 		TownyMessaging.sendMsg(player, (Translation.of("town_sing") + ": " + (townblock != null && townblock.hasTown() ? townblock.getTownOrNull().getName() : Translation.of("status_no_town")) + " : " + Translation.of("owner_status") + ": " + (townblock != null && townblock.hasResident() ? townblock.getResidentOrNull().getName() : Translation.of("status_no_town"))));
 	}
 	
-	public static void clearWildernessMapData() {
-		wildernessMapDataMap.clear();
+	private static Map<WorldCoord, TownyMapData> getWildernessMapDataMap() {
+		return TownyUniverse.getInstance().getWildernessMapDataMap();
 	}
 }

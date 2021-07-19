@@ -376,10 +376,11 @@ public enum HelpMenu {
 				.add("list", "")
 				.add("online", Translation.of("town_help_10"))
 				.add("leave", "")
-				.add("reslist", "")
-				.add("ranklist", "")
-				.add("outlawlist", "")
-				.add("plots", "")
+				.add("reslist (town)", "")
+				.add("ranklist (town)", "")
+				.add("outlawlist (town)", "")
+				.add("plotgrouplist (town) (page)", "")
+				.add("plots (town)", "")
 				.add("outlaw add/remove [name]", "")
 				.add("say", "[message]")
 				.add("spawn", Translation.of("town_help_5"))
@@ -590,13 +591,15 @@ public enum HelpMenu {
 		@Override
 		protected MenuBuilder load() {
 			return new MenuBuilder("plot group")
-				.add("add | new | create", "[name]", "Ex: /plot group new ExpensivePlots")
-				.add("remove", "", "Removes a plot from the specified group.")
-				.add("rename", "[newName]", "Renames the group you are standing in.")
-				.add("set", "...", "Ex: /plot group set perm resident on.")
-				.add("toggle", "...", "Ex: /plot group toggle [pvp|fire|mobs]")
-				.add("forsale | fs", "[price]", "Ex: /plot group forsale 50")
-				.add("notforsale | nfs", "", "Ex: /plot group notforsale");
+				.add("add|new|create [name]", "Ex: /plot group new ExpensivePlots")
+				.add("remove", "Removes a plot from the specified group.")
+				.add("delete", "Deletes a plotgroup completely.")
+				.add("rename [newName]", "Renames the group you are standing in.")
+				.add("set ...", "Ex: /plot group set perm resident on.")
+				.add("toggle ...", "Ex: /plot group toggle [pvp|fire|mobs]")
+				.add("forsale|fs [price]", "Ex: /plot group forsale 50")
+				.add("notforsale|nfs", "Ex: /plot group notforsale")
+				.add("trust [add/remove] [resident", "Adds or removes a resident as trusted.");
 		}
 	},
 	
@@ -797,6 +800,54 @@ public enum HelpMenu {
 			return new MenuBuilder("plot jailcell")
 				.add("", "/plot jailcell", "add", "Adds a JailCell where you stand.")
 				.add("", "/plot jailcell", "remove", "Removes a JailCell where you stand.");
+		}
+	},
+	
+	PLOT_PERM_HELP {
+		@Override
+		protected MenuBuilder load() {
+			return new MenuBuilder("plot perm")
+				.add("hud", "Opens the permissions hud.")
+				.add("remove [resident]", "Removes permission overrides for a player.")
+				.add("add [resident]", "Adds default permission overrides for a player.")
+				.add("gui", "Opens the permission editor gui.");
+		}
+	},
+	
+	PLOT_TRUST_HELP {
+		@Override
+		protected MenuBuilder load() {
+			return new MenuBuilder("plot trust")
+				.add("add [resident]", "")
+				.add("remove [resident]", "");
+		}
+	},
+	
+	TOWN_TRUST_HELP {
+		@Override
+		protected MenuBuilder load() {
+			return new MenuBuilder("town trust")
+				.add("add [resident]", "")
+				.add("remove [resident]", "");
+		}
+	},
+	
+	PLOT_GROUP_TRUST_HELP {
+		@Override
+		protected MenuBuilder load() {
+			return new MenuBuilder("plot group trust")
+				.add("add [resident]", "")
+				.add("remove [resident]", "");
+		}
+	},
+	
+	PLOT_GROUP_PERM_HELP {
+		@Override
+		protected MenuBuilder load() {
+			return new MenuBuilder("plot group perm")
+				.add("gui", "")
+				.add("add [player]", "")
+				.add("remove [player]", "");
 		}
 	};
 
